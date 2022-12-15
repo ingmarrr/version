@@ -77,8 +77,8 @@ enum Cmd {
     #[clap(name = "push")]
     Push(PushOpts),
 
-    #[clap(name = "tags")]
-    Tags,
+    #[clap(name = "tag")]
+    Tag,
 }
 
 #[derive(clap::Args)]
@@ -209,15 +209,34 @@ fn main() {
             let other_args = others.split(' ').collect::<Vec<&str>>();
             push(other_args);
         }
-        Cmd::Tags => {
-            let cmd = std::process::Command::new("git")
-                .arg("push")
-                .arg("--tag")
+        Cmd::Tag => {
+            let tag = std::process::Command::new("git")
+                .arg("tag")
+                .arg(&conf.version)
                 .output()
                 .unwrap();
-            println!("status: {}", cmd.status);
+            println!("Tag Creation status: {}", tag.status);
+            io::stdout().write_all(&tag.stdout).unwrap();
+            io::stderr().write_all(&tag.stderr).unwrap();
+            let cmd = std::process::Command::new("git")
+                .arg("push")
+                .arg("--tags")
+                .output()
+                .unwrap();
+            println!("Pushing Tags status: {}", cmd.status);
             io::stdout().write_all(&cmd.stdout).unwrap();
             io::stderr().write_all(&cmd.stderr).unwrap();
+            match (tag.status.success(), cmd.status.success()) {
+                (true, true) => {
+                    println!("Tagging Successful");
+                    let mut v = Version::from(conf.version.as_str());
+                    v.incr();
+                    rw.write(v, ".vers");
+                }
+                _ => {
+                    println!("Tagging Failed");
+                }
+            }
         }
     }
 }
